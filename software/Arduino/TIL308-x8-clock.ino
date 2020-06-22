@@ -21,7 +21,7 @@ int latches[8] = {12, 9, 13, 8, 7, 6, 4, 1}; // latches LSD to MSD
 
 int blanking[4] = {10, 11, 5, 3}; // blanking line for brightness control via PWM (must be PWM pins)
 
-#define decimalPoint 0   // TEMP definition **** TO BE REMOVED
+#define decimalPoint 0  
 
 #define oneSecondInterruptPin 2
 #define sensorPin A6 // LDR for intensity control
@@ -45,6 +45,8 @@ int blankMSD = 0;
 #define NIGHTMODESTARTEE 12 // EEPROM position to store night mode start time
 #define NIGHTMODEENDEE 16 // // EEPROM position to store night mode end time
 #define ENDOFNIGHTMODE 9 // end night mode at 9 AM. Integer
+#define INTENSITYTHRESHOLDMID 20 // below this is night, above is day light
+#define INTENSITYTHRESHOLDDAY 25 // below this is night, above is day light
 
 
 byte seconds;
@@ -60,7 +62,8 @@ int  secondsElapsed = 30;
 bool blinker = 0;
 
 #define OFFBRI 0
-#define MINBRI 10
+#define MINBRI 20
+#define MIDBRI 150
 #define MAXBRI 255
 #define RESETONTIMEDIFF 7
 #define RESETONTIME 20
@@ -126,9 +129,6 @@ void updateDisplay(int myPosition, int myBCD, int dpOnOff=0) {
 }
 
 
-void updateDP(int myPosition, bool onOff) {
-  
-}
 
 int fadeOut(int startingValue=250, int fadeStep=10, int fadeSpeed=25, int fadeStop=0)
 {
@@ -267,6 +267,10 @@ void setup() {
   }
   
 
+  printBCD(4, 0xC1);
+  printBCD(2, 0xA0);
+  blankControl(OFFBRI, MAXBRI, MAXBRI, OFFBRI);
+  delay(1000);
 
 
   RTCnow = rtc.now();
@@ -297,30 +301,6 @@ void loop() {
   static int randomWord;
 
 
-//  int ADvalue;
-//
-//  Serial.print(secondsElapsed);
-//  Serial.print(": ");
-//
-//  // ** NOTE ACC reading from 100 to 700 with   Vcc-15k-LDR-(ADC)-1k-GND
-
-//  blankControl(0, 100, 100, 0);
-////
-//  ADvalue = analogRead(sensorPin);
-//  printBCD(2, decToBcd(ADvalue));
-//  printBCD(4, decToBcd(ADvalue/100));
-//  //Serial.println(ADvalue);
-//  delay(2000);
-//  
-//  blankControl(200, 190, 180, 170);
-//   printBCD(0, 0x10, 1, 1);
-//   printBCD(2, 0x32, 1, 1);
-//   printBCD(4, 0x54, 1, 1);
-//   printBCD(6, 0x76, 1, 1);
-//
-//  delay(2000);
-
-
    if (secondElapsed == 1) {
       blinker = secondsElapsed % 2; // blink stuff once a second (0.5 Hz)
 
@@ -329,7 +309,17 @@ void loop() {
       //      Serial.print("Light value: ");
       //      Serial.println(lightIntensity);
       
-      lightIntensity = map(analogRead(sensorPin), 2, 50, MINBRI, MAXBRI);
+      int ADCreading = analogRead(sensorPin);
+
+      if (ADCreading == 0) {
+        // button pressed
+      } else {
+        if (ADCreading > INTENSITYTHRESHOLDDAY) {
+          lightIntensity = (lightIntensity + MAXBRI) / 2;
+        } else {
+          lightIntensity = (lightIntensity + MINBRI) / 2;
+        }
+      }
       if (nightMode == 1) {
         if (abs(lightIntensity-lightIntensityOld)>RESETONTIMEDIFF) {
           if (timerCountdown<RESETONTIME) {
@@ -351,13 +341,13 @@ void loop() {
       // Control blinking dots. Since there is no PWM on them,
       // turn them off in darkness or during DD/MM/YY display
       // at the end of the minute
-      if ( (secondsElapsed > 56) || (lightIntensity > 200) ) {
+//      if ( (secondsElapsed > 56) || (lightIntensity > 200) ) {
 //        updateDpLeft(0);
 //        updateDpRight(0);
-      } else {
+//      } else {
 //        updateDpLeft(blinker);
 //        updateDpRight(!blinker);
-      }
+//      }
       
       
       secondElapsed = 0;
@@ -379,13 +369,6 @@ void loop() {
     if (RTCnow.hour() > 6) {
 
       switch (secondsElapsed) {
-        case 4:
-        case 5:
-        case 6:
-          updateDisplay(4, 0x0B);
-          printBCD(5, decToBcd(RTCnow.hour()));
-          printBCD(2, decToBcd(RTCnow.minute()));
-          blankControl(lightIntensity, lightIntensity, lightIntensity, OFFBRI);
 // ********TODO
 //        case 18:
 //        case 19:
@@ -408,18 +391,23 @@ void loop() {
         case 59:
         case 58:
           // show month-day and day-of-the-week number
-          printBCD(5, decToBcd(RTCnow.day()));
+          printBCD(6, decToBcd(RTCnow.day()));
+          updateDisplay(5, 0x0B);
           printBCD(3, decToBcd(RTCnow.month()));
-          printBCD(1, decToBcd(RTCnow.year() % 100));
+          updateDisplay(2, 0x0B);
+          printBCD(0, decToBcd(RTCnow.year() % 100));
           blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity); 
+          lightIntensityOld = lightIntensity;
           break;
         case 57:
-          lightIntensity = fadeOut(lightIntensity);
+          lightIntensityOld = fadeOut(lightIntensityOld);
           delay(200);
 //          updateDpRight(0);
 //          updateDpLeft(0);
           break;
         default:
+          updateDisplay(7, 0x0D);
+          updateDisplay(0, 0x0D);
           printBCD(5, decToBcd(RTCnow.hour()));
           printBCD(3, decToBcd(RTCnow.minute()), 1, 0);
           printBCD(1, decToBcd(secondsElapsed), 1, 0);
@@ -428,6 +416,8 @@ void loop() {
       } // end switch
       
     } else {
+          updateDisplay(7, 0x0B);
+          updateDisplay(0, 0x0B);
           printBCD(5, decToBcd(RTCnow.hour()));
           printBCD(3, decToBcd(RTCnow.minute()));
           printBCD(1, decToBcd(secondsElapsed));
