@@ -1,6 +1,4 @@
-// *** REMEMBER ///
-// RTC operations in setup() are DISABLED!!
-
+// -------------------------------------------------------------
 // (c) by Paolo CRAVERO IK1ZYW 2020. All rights reserved.
 //
 // No responsibility is taken for any use of this code,
@@ -14,12 +12,26 @@
 RTC_DS3231 rtc;
 DateTime RTCnow;
 
-// PIN DEFINITIONS
+// PIN DEFINITIONS - don't touch unless your layout is different
+
 int inputs[4] = {A0, A1, A2, A3}; // A, B, C, D outputs
-
 int latches[8] = {12, 9, 13, 8, 7, 6, 4, 1}; // latches LSD to MSD
-
+int latchesReversed[8] = {1, 4, 6, 7, 8, 13, 9, 12}; // as above but MSD to LSD, used by updateDisplayFromVector
 int blanking[4] = {10, 11, 5, 3}; // blanking line for brightness control via PWM (must be PWM pins)
+
+
+// DATA DEFINITIONS
+
+#define DASH 0x0B
+#define DASHDP 0x1B
+#define OFFDIGIT 0x0D
+#define OFFDIGITDP 0x1D
+
+// The displayVector carries information of decimal point and symbol for each position
+// The higher nibble represents the DP off (0) or on (1).
+// The lower nibble is the digit/symbol to be displayed
+unsigned int displayVector[8] = {DASH, OFFDIGIT, 0x0C, 0x01, 0x0A, 0x00, OFFDIGIT, DASH};
+unsigned int brightnessVector[4] = {255, 255, 255, 255}; // 0 min to 255 max
 
 #define decimalPoint 0  
 
@@ -106,6 +118,12 @@ int bcdToDec(int val)
   return ( val / 16 * 10 + val % 16 );
 }
 
+// update the display using the two vectors:
+// - data
+// - brightness
+void updateDisplayFromVector() {
+  
+}
 
 void updateDisplay(int myPosition, int myBCD, int dpOnOff=0) {
 
