@@ -122,7 +122,30 @@ int bcdToDec(int val)
 // - data
 // - brightness
 void updateDisplayFromVector() {
-  
+
+  // looping on the vector MSD to LSD
+  for (int p = 0; p < 8; p++) {
+    
+    // check if DP is ON
+    if ((0xF0 & displayVector[p]) == 0B00010000) {
+      digitalWrite(decimalPoint, HIGH);
+    } else {
+      digitalWrite(decimalPoint, LOW);  
+    }
+
+    
+    for(int c = 0; c < 4; c++){
+      digitalWrite(inputs[c], BCD[ 0x0F & displayVector[p] ][c]);
+    }
+
+
+    // send a signal to the latch so that the display loads the data
+    digitalWrite(latchesReversed[p], HIGH);
+    digitalWrite(latchesReversed[p], LOW); 
+    digitalWrite(latchesReversed[p], HIGH);     
+  }
+    
+ 
 }
 
 void updateDisplay(int myPosition, int myBCD, int dpOnOff=0) {
@@ -285,10 +308,12 @@ void setup() {
   }
   
 
-  printBCD(4, 0xC1);
-  printBCD(2, 0xA0);
-  blankControl(OFFBRI, MAXBRI, MAXBRI, OFFBRI);
-  delay(1000);
+//  printBCD(4, 0xC1);
+//  printBCD(2, 0xA0);
+//  blankControl(OFFBRI, MAXBRI, MAXBRI, OFFBRI);
+  updateDisplayFromVector();
+  blankControl(MAXBRI, MAXBRI, MAXBRI, MAXBRI);
+  delay(2000);
 
 
   RTCnow = rtc.now();
@@ -383,6 +408,16 @@ void loop() {
       secondsElapsed = RTCnow.second();
     }
 
+    displayVector[0] = OFFDIGIT;
+    displayVector[1] = decToBcd(RTCnow.hour()/10);
+    displayVector[2] = decToBcd(RTCnow.hour()%10);
+    displayVector[3] = (decToBcd(RTCnow.minute()/10) | 0B00010000);
+    displayVector[4] = decToBcd(RTCnow.minute()%10);
+    displayVector[5] = (decToBcd(secondsElapsed/10) | 0B00010000);
+    displayVector[6] = decToBcd(secondsElapsed%10);    
+    displayVector[7] = OFFDIGIT;
+
+
     // daytime roll, between 7 AM and midnight
     if (RTCnow.hour() > 6) {
 
@@ -424,11 +459,7 @@ void loop() {
 //          updateDpLeft(0);
           break;
         default:
-          updateDisplay(7, 0x0D);
-          updateDisplay(0, 0x0D);
-          printBCD(5, decToBcd(RTCnow.hour()));
-          printBCD(3, decToBcd(RTCnow.minute()), 1, 0);
-          printBCD(1, decToBcd(secondsElapsed), 1, 0);
+          updateDisplayFromVector();
           blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
           break;
       } // end switch
