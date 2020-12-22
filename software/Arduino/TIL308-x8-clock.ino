@@ -57,8 +57,8 @@ int blankMSD = 0;
 #define NIGHTMODESTARTEE 12 // EEPROM position to store night mode start time
 #define NIGHTMODEENDEE 16 // // EEPROM position to store night mode end time
 #define ENDOFNIGHTMODE 9 // end night mode at 9 AM. Integer
-#define INTENSITYTHRESHOLDMID 20 // below this is night, above is day light
-#define INTENSITYTHRESHOLDDAY 25 // below this is night, above is day light
+#define INTENSITYTHRESHOLDMID 100 // below this is night, above is day light
+#define INTENSITYTHRESHOLDDAY 220 // below this is night, above is day light
 
 
 byte seconds;
@@ -75,6 +75,7 @@ bool blinker = 0;
 
 #define OFFBRI 0
 #define MINBRI 20
+#define DIMBRI 50
 #define MIDBRI 150
 #define MAXBRI 255
 #define RESETONTIMEDIFF 7
@@ -229,6 +230,31 @@ void printBCD(int myPosition, int myBCD, int myDPh=0, int myDPl=0) {
 
 }
 
+void setDisplayVector (unsigned int v0, unsigned int v1, unsigned int v2, unsigned int v3, unsigned int v4, unsigned int v5, unsigned int v6, unsigned int v7, int offset=0 ) {
+    displayVector[offset+0] = v0;
+    displayVector[offset+1] = v1;
+    displayVector[offset+2] = v2;
+    displayVector[offset+3] = v3;
+    displayVector[offset+4] = v4;
+    displayVector[offset+5] = v5;
+    displayVector[offset+6] = v6;
+    displayVector[offset+7] = v7;
+}
+
+
+// simple button press, no short-long detection (TODO)
+int buttonPressed() {
+   if (analogRead(sensorPin) < 1) {
+    delay(50);
+    if (analogRead(sensorPin) < 1) {
+    return 1;
+    } else {
+      return 0;
+    }
+   } else {
+    return 0;
+   }
+}
 
 void oneSecondISR() {
   secondElapsed = 1;
@@ -239,7 +265,7 @@ void oneSecondISR() {
 
 void setup() {
 
-  //Serial.begin(9600);
+//  Serial.begin(9600);
 
   pinMode(sensorPin, INPUT);
   pinMode(potPin, INPUT);
@@ -313,7 +339,7 @@ void setup() {
 //  blankControl(OFFBRI, MAXBRI, MAXBRI, OFFBRI);
   updateDisplayFromVector();
   blankControl(MAXBRI, MAXBRI, MAXBRI, MAXBRI);
-  delay(2000);
+  delay(670);
 
 
   RTCnow = rtc.now();
@@ -332,6 +358,7 @@ void loop() {
 
   static int lightIntensity;
   static int lightIntensityOld;
+  static int shortPress;
   int newHours;
   int newMinutes;
   int newDay;
@@ -342,6 +369,7 @@ void loop() {
   int oldValue;
   int maxDayOfMonth;
   static int randomWord;
+  static int timePosOffset=0;
 
 
    if (secondElapsed == 1) {
@@ -353,6 +381,7 @@ void loop() {
       //      Serial.println(lightIntensity);
       
       int ADCreading = analogRead(sensorPin);
+      //Serial.println(ADCreading);
 
       if (ADCreading == 0) {
         // button pressed
@@ -398,24 +427,297 @@ void loop() {
     }
 
 
-
-    if (secondsElapsed >= 60) {
-
 //***TODO      randomWord = random(0, WORDS) * 2;
-      
-      // once a minute update the data from RTC
+ 
+    // once a minute update the data from RTC
+    if (secondsElapsed >= 60) {
       RTCnow = rtc.now();
       secondsElapsed = RTCnow.second();
+      timePosOffset = random(-1,1);
     }
 
-    displayVector[0] = OFFDIGIT;
-    displayVector[1] = decToBcd(RTCnow.hour()/10);
-    displayVector[2] = decToBcd(RTCnow.hour()%10);
-    displayVector[3] = (decToBcd(RTCnow.minute()/10) | 0B00010000);
-    displayVector[4] = decToBcd(RTCnow.minute()%10);
-    displayVector[5] = (decToBcd(secondsElapsed/10) | 0B00010000);
-    displayVector[6] = decToBcd(secondsElapsed%10);    
-    displayVector[7] = OFFDIGIT;
+    setDisplayVector( OFFDIGIT,
+                      decToBcd(RTCnow.hour()/10),
+                      decToBcd(RTCnow.hour()%10),
+                      (decToBcd(RTCnow.minute()/10) | 0B00010000),
+                      decToBcd(RTCnow.minute()%10),
+                      (decToBcd(secondsElapsed/10) | 0B00010000),
+                      decToBcd(secondsElapsed%10),
+                      OFFDIGIT );
+    
+//    displayVector[0] = OFFDIGIT;
+//    displayVector[1] = decToBcd(RTCnow.hour()/10);
+//    displayVector[2] = decToBcd(RTCnow.hour()%10);
+//    displayVector[3] = (decToBcd(RTCnow.minute()/10) | 0B00010000);
+//    displayVector[4] = decToBcd(RTCnow.minute()%10);
+//    displayVector[5] = (decToBcd(secondsElapsed/10) | 0B00010000);
+//    displayVector[6] = decToBcd(secondsElapsed%10);    
+//    displayVector[7] = OFFDIGIT;
+
+
+// ***** SET ROUTINE *****
+
+  if ( buttonPressed() ) {
+      
+      nightModeStayOn = 1;
+      shortPress = 0; // reset short press
+  
+      newHours = RTCnow.hour();
+      newMinutes = RTCnow.minute();
+      newDay = RTCnow.day();
+      newMonth = RTCnow.month();
+      newYear = RTCnow.year() % 100;
+      newDoW = RTCnow.dayOfTheWeek();
+  
+      // set hours
+      oldValue = map(analogRead(potPin), 0, 1000, 0, 23);
+      do {
+        shortPress = buttonPressed();
+        setDisplayVector( OFFDIGIT,
+                          OFFDIGIT,
+                          decToBcd(newHours/10),
+                          decToBcd(newHours%10),
+                          (decToBcd(newMinutes/10) | 0B00010000),
+                          decToBcd(newMinutes%10),
+                          OFFDIGIT,
+                          OFFDIGIT );        
+        updateDisplayFromVector();
+        
+        tempValue = map(analogRead(potPin), 0, 1000, 0, 23);
+        // if the pot has moved
+        if (tempValue != oldValue) {
+          newHours = tempValue;
+          oldValue = tempValue;
+        }
+
+        blankControl(OFFBRI, MAXBRI, DIMBRI, OFFBRI); // blank rightmost two digits
+      } while (shortPress == 0);
+      shortPress = 0;
+  
+//      if (longPress == 1) {
+//        updateDpLeft(1);
+//        updateDpRight(1);
+//  
+//      }
+  
+      // set minutes
+      oldValue = map(analogRead(potPin), 0, 1015, 0, 59);
+      do {
+        shortPress = buttonPressed();
+        setDisplayVector( OFFDIGIT,
+                          OFFDIGIT,
+                          decToBcd(newHours/10),
+                          decToBcd(newHours%10),
+                          (decToBcd(newMinutes/10) | 0B00010000),
+                          decToBcd(newMinutes%10),
+                          OFFDIGIT,
+                          OFFDIGIT );        
+        updateDisplayFromVector();
+  
+        tempValue = map(analogRead(potPin), 0, 1015, 0, 59);
+        // if the pot has moved
+        if (tempValue != oldValue) {
+          newMinutes = tempValue;
+          oldValue = tempValue;
+        }
+              
+        blankControl(OFFBRI, DIMBRI, MAXBRI, OFFBRI); // blank rightmost two digits
+      } while (shortPress == 0);
+      shortPress = 0;
+  
+//      if (longPress == 1) {
+//        updateDpLeft(1);
+//        updateDpRight(1);
+//  
+//      }
+  
+  
+      // set month
+      oldValue = map(analogRead(potPin), 0, 1000, 1, 12);
+      do {
+        shortPress = buttonPressed();
+        setDisplayVector( decToBcd(newDay/10),
+                          decToBcd(newDay%10),
+                          (decToBcd(newMonth/10) | 0B00010000),
+                          decToBcd(newMonth%10),
+                          (decToBcd(0x02) | 0B00010000),
+                          decToBcd(0),
+                          decToBcd(newYear/10),
+                          decToBcd(newYear%10));        
+        updateDisplayFromVector();
+
+        tempValue = map(analogRead(potPin), 0, 1000, 1, 12);
+        // if the pot has moved
+        if (tempValue != oldValue) {
+          newMonth = tempValue;
+          oldValue = tempValue;
+        }
+   
+        
+        blankControl(DIMBRI, MAXBRI, DIMBRI, DIMBRI); // blank leftmost two digits
+      } while (shortPress == 0);
+      shortPress = 0;
+  
+//      if (longPress == 1) {
+//        updateDpLeft(1);
+//        updateDpRight(1);
+//  
+//      }
+  
+  
+      // set day
+      switch (newMonth) {
+        case 1:
+        case 3:
+        case 5:
+        case 7:
+        case 8:
+        case 10:
+        case 12:
+          maxDayOfMonth = 31;
+          break;
+        case 4:
+        case 6:
+        case 9:
+        case 11:
+          maxDayOfMonth = 30;
+          break;
+        case 2: // alright, please don't set the time on THAT DAY of leap years!
+          maxDayOfMonth = 28;
+          break;
+      }
+        
+      oldValue = map(analogRead(potPin), 0, 1000, 1, maxDayOfMonth);    
+      do {
+        shortPress = buttonPressed();
+        setDisplayVector( decToBcd(newDay/10),
+                          decToBcd(newDay%10),
+                          (decToBcd(newMonth/10) | 0B00010000),
+                          decToBcd(newMonth%10),
+                          (decToBcd(0x02) | 0B00010000),
+                          decToBcd(0),
+                          decToBcd(newYear/10),
+                          decToBcd(newYear%10));        
+        updateDisplayFromVector();
+          
+        tempValue = map(analogRead(potPin), 0, 1000, 1, maxDayOfMonth);
+        // if the pot has moved
+        if (tempValue != oldValue) {
+          newDay = tempValue;
+          oldValue = tempValue;
+        }
+        
+        blankMSD = 0;
+        blankControl(MAXBRI, DIMBRI, DIMBRI, DIMBRI); // blank rightmost two digits
+      } while (shortPress == 0);
+      shortPress = 0;
+  
+//      if (longPress == 1) {
+//        updateDpLeft(1);
+//        updateDpRight(1);
+//  
+//      }
+  
+      // set year
+      oldValue = map(analogRead(potPin), 0, 1000, 20, 50);    
+      do {
+        shortPress = buttonPressed();
+        setDisplayVector( decToBcd(newDay/10),
+                          decToBcd(newDay%10),
+                          (decToBcd(newMonth/10) | 0B00010000),
+                          decToBcd(newMonth%10),
+                          (decToBcd(2) | 0B00010000),
+                          decToBcd(0),
+                          decToBcd(newYear/10),
+                          decToBcd(newYear%10));        
+        updateDisplayFromVector();
+        
+        tempValue = map(analogRead(potPin), 0, 1000, 20, 50);
+        // if the pot has moved
+        if                 (tempValue != oldValue) {
+          newYear = tempValue;
+          oldValue = tempValue;
+        }
+        
+        blankControl(DIMBRI, DIMBRI, DIMBRI, MAXBRI); // no blanking for the year
+      } while (shortPress == 0);
+      shortPress = 0;
+  
+//      if (longPress == 1) {
+//        updateDpLeft(1);
+//        updateDpRight(1);
+//  
+//      }
+  
+      // set END OF NIGHT MODE
+      oldValue = map(analogRead(potPin), 0, 1015, 0, 23);
+      do {
+        shortPress = buttonPressed();
+        setDisplayVector( OFFDIGIT,
+                          OFFDIGIT,
+                          OFFDIGIT,
+                          OFFDIGIT,
+                          0x0B,
+                          0x0E,
+                          decToBcd(nightModeEndHour/10),
+                          decToBcd(nightModeEndHour%10));        
+        updateDisplayFromVector();
+
+        tempValue = map(analogRead(potPin), 0, 1015, 0, 23);
+        // if the pot has moved
+        if (tempValue != oldValue) {
+          nightModeEndHour = tempValue;
+          oldValue = tempValue;
+        }
+              
+        blankControl(DIMBRI, DIMBRI, MAXBRI, MAXBRI); // blank rightmost two digits
+      } while (shortPress == 0);
+      shortPress = 0;
+  
+//      if (longPress == 1) {
+//        updateDpLeft(1);
+//        updateDpRight(1);
+//  
+//      }
+  
+  
+      // update the RTC only if the button was not longpressed during previous steps
+
+//      if (longPress == 0) {
+        rtc.adjust(DateTime(newYear, newMonth, newDay, newHours, newMinutes, 0));
+        EEPROM.write(NIGHTMODEENDEE, nightModeEndHour);
+        setDisplayVector( OFFDIGIT,
+                          OFFDIGIT,
+                          OFFDIGIT,
+                          OFFDIGIT,
+                          0x0C,
+                          0x0F,
+                          OFFDIGIT,
+                          decToBcd(1));        
+        updateDisplayFromVector();
+
+//      } else {
+        setDisplayVector( OFFDIGIT,
+                          OFFDIGIT,
+                          OFFDIGIT,
+                          OFFDIGIT,
+                          0x0C,
+                          0x0F,
+                          OFFDIGIT,
+                          decToBcd(0));        
+        updateDisplayFromVector();
+
+//      }
+      blankControl(MAXBRI, MAXBRI, MAXBRI, MAXBRI);
+      delay(1000);
+  
+      // exit
+      shortPress = 0;
+//      longPress = 0;
+      
+      RTCnow = rtc.now(); // update current time
+  }
+// ***** END SET ROUTINE *****
 
 
     // daytime roll, between 7 AM and midnight
@@ -463,13 +765,28 @@ void loop() {
           blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
           break;
       } // end switch
-      
+
+    // between 00H00 and 05H59 do the night mode display
+    // which has a limited amount of movement and displays
+    // only HH:MM
     } else {
-          updateDisplay(7, 0x0B);
-          updateDisplay(0, 0x0B);
-          printBCD(5, decToBcd(RTCnow.hour()));
-          printBCD(3, decToBcd(RTCnow.minute()));
-          printBCD(1, decToBcd(secondsElapsed));
+
+          displayVector[0] = OFFDIGIT;
+          displayVector[1] = OFFDIGIT;
+          displayVector[2] = decToBcd(RTCnow.hour()/10);
+          displayVector[3] = decToBcd(RTCnow.hour()%10);
+          displayVector[4] = (decToBcd(RTCnow.minute()/10) | 0B00010000);
+          displayVector[5] = decToBcd(RTCnow.minute()%10);
+          displayVector[6] = OFFDIGIT;
+          displayVector[7] = OFFDIGIT;         
+          updateDisplayFromVector();
+          
+//          updateDisplay(7, 0x0B);
+//          updateDisplay(0, 0x0B);
+//          printBCD(5, decToBcd(RTCnow.hour()));
+//          printBCD(3, decToBcd(RTCnow.minute()));
+//          printBCD(1, decToBcd(secondsElapsed));
+
         blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
     }
     
