@@ -48,17 +48,38 @@ unsigned int brightnessVector[4] = {255, 255, 255, 255}; // 0 min to 255 max
 // BEHAV OPTIONS
 int blankMSD = 0;
 
+// *************************
+// You can add your words to the vector "words" below
+// You need to update the WORDS constant with the correct number of
+// words included in the array
+// Available letters are:   ABCEFIOSG-
+// Mapped to these symbols: A8CEF1059B  (mind the mix of letters and numbers!)
+// Plus space ("D") and all the numbers are at your disposal!
+// *************************
+
+#define WORDS 8
+int words[][4] = {
+  0xDD, 0xF1, 0x90, 0xDD, // figo
+  0x81, 0xFA, 0xCE, 0x5D, // bifaces
+  0xDD, 0x50, 0xFA, 0xDD, // sofa
+  0xDD, 0xDD, 0xCA, 0xFE, // cafe
+  0x51, 0xD0, 0xD5, 0x1D, // si o si
+  0x73, 0xD5, 0x1D, 0x88, // 73 51 88
+  0xD5, 0x0F, 0x1A, 0xDD, // sofia
+  0xDD, 0xD4, 0x2D, 0xDD, // THE ANSWER!
+};
+
+
 
 // DO NOT TOUCH BELOW THIS LINE
-
 
 #define DSTADDRESS 1 // EEPROM position for DST status
 #define NIGHTMODEEE 10 // EEPROM position to store night mode setting
 #define NIGHTMODESTARTEE 12 // EEPROM position to store night mode start time
 #define NIGHTMODEENDEE 16 // // EEPROM position to store night mode end time
 #define ENDOFNIGHTMODE 9 // end night mode at 9 AM. Integer
-#define INTENSITYTHRESHOLDMID 100 // below this is night, above is day light
-#define INTENSITYTHRESHOLDDAY 220 // below this is night, above is day light
+#define INTENSITYTHRESHOLDMID 150 // below this is night, above is day light
+#define INTENSITYTHRESHOLDDAY 320 // below this is night, above is day light
 
 
 byte seconds;
@@ -265,7 +286,7 @@ void oneSecondISR() {
 
 void setup() {
 
-//  Serial.begin(9600);
+  //Serial.begin(9600);
 
   pinMode(sensorPin, INPUT);
   pinMode(potPin, INPUT);
@@ -369,6 +390,7 @@ void loop() {
   int oldValue;
   int maxDayOfMonth;
   static int randomWord;
+  static int randomWordDisplay=0; // display the random word or not, randomized every 60".
   static int timePosOffset=0;
 
 
@@ -388,8 +410,10 @@ void loop() {
       } else {
         if (ADCreading > INTENSITYTHRESHOLDDAY) {
           lightIntensity = (lightIntensity + MAXBRI) / 2;
-        } else {
+        } else if (ADCreading < INTENSITYTHRESHOLDMID) {
           lightIntensity = (lightIntensity + MINBRI) / 2;
+        } else {
+          lightIntensity = (lightIntensity + (MINBRI+MAXBRI)/2) / 2;
         }
       }
       if (nightMode == 1) {
@@ -409,31 +433,20 @@ void loop() {
         
       lightIntensityOld = lightIntensity;
       }
-
-      // Control blinking dots. Since there is no PWM on them,
-      // turn them off in darkness or during DD/MM/YY display
-      // at the end of the minute
-//      if ( (secondsElapsed > 56) || (lightIntensity > 200) ) {
-//        updateDpLeft(0);
-//        updateDpRight(0);
-//      } else {
-//        updateDpLeft(blinker);
-//        updateDpRight(!blinker);
-//      }
-      
       
       secondElapsed = 0;
 
     }
 
 
-//***TODO      randomWord = random(0, WORDS) * 2;
  
     // once a minute update the data from RTC
     if (secondsElapsed >= 60) {
       RTCnow = rtc.now();
       secondsElapsed = RTCnow.second();
       timePosOffset = random(-1,1);
+      randomWord = random(0, WORDS);
+      randomWordDisplay = random(0, 10); // display the random word 10% of times
     }
 
     setDisplayVector( OFFDIGIT,
@@ -674,14 +687,14 @@ void loop() {
       } while (shortPress == 0);
       shortPress = 0;
   
-//      if (longPress == 1) {
+//TODO      if (longPress == 1) {
 //        updateDpLeft(1);
 //        updateDpRight(1);
 //  
 //      }
   
   
-      // update the RTC only if the button was not longpressed during previous steps
+      // TODO update the RTC only if the button was not longpressed during previous steps
 
 //      if (longPress == 0) {
         rtc.adjust(DateTime(newYear, newMonth, newDay, newHours, newMinutes, 0));
@@ -724,25 +737,18 @@ void loop() {
     if (RTCnow.hour() > 6) {
 
       switch (secondsElapsed) {
-// ********TODO
-//        case 18:
-//        case 19:
+        case 28:
+        case 29:
           // during the day show a random word
+          if (randomWordDisplay == 0) {
+            printBCD(0, words[randomWord][3]);
+            printBCD(2, words[randomWord][2]);
+            printBCD(4, words[randomWord][1]);
+            printBCD(6, words[randomWord][0]);
+            blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
+            break;
+          }
 
-//          printBCD(2, words[randomWord]);
-//          printBCD(0, words[randomWord+1]);
-//          blankMSD=0;
-//          if (randomWord > (WORDS3LETTER*2)) { // we're beyond 4-letter words
-//            blankControl(255, lightIntensity, lightIntensity, 255);
-//          } else if (randomWord > (WORDS4LETTER*2)) { // we're beyond 4-letter words
-//            blankControl(lightIntensity, lightIntensity, lightIntensity, 255);
-//          } else {
-//            blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
-//          }
-// **** TODO END
-//          updateDpRight(0);
-//          updateDpLeft(0);
-          break;        
         case 59:
         case 58:
           // show month-day and day-of-the-week number
@@ -771,23 +777,17 @@ void loop() {
     // only HH:MM
     } else {
 
-          displayVector[0] = OFFDIGIT;
-          displayVector[1] = OFFDIGIT;
-          displayVector[2] = decToBcd(RTCnow.hour()/10);
-          displayVector[3] = decToBcd(RTCnow.hour()%10);
-          displayVector[4] = (decToBcd(RTCnow.minute()/10) | 0B00010000);
-          displayVector[5] = decToBcd(RTCnow.minute()%10);
-          displayVector[6] = OFFDIGIT;
-          displayVector[7] = OFFDIGIT;         
-          updateDisplayFromVector();
+      displayVector[0] = OFFDIGIT;
+      displayVector[1] = OFFDIGIT;
+      displayVector[2] = decToBcd(RTCnow.hour()/10);
+      displayVector[3] = decToBcd(RTCnow.hour()%10);
+      displayVector[4] = (decToBcd(RTCnow.minute()/10) | 0B00010000);
+      displayVector[5] = decToBcd(RTCnow.minute()%10);
+      displayVector[6] = OFFDIGIT;
+      displayVector[7] = OFFDIGIT;         
+      updateDisplayFromVector();
           
-//          updateDisplay(7, 0x0B);
-//          updateDisplay(0, 0x0B);
-//          printBCD(5, decToBcd(RTCnow.hour()));
-//          printBCD(3, decToBcd(RTCnow.minute()));
-//          printBCD(1, decToBcd(secondsElapsed));
-
-        blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
+      blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
     }
     
 
