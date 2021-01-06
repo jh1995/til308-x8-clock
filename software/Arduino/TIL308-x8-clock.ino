@@ -57,7 +57,7 @@ int blankMSD = 0;
 // Plus space ("D") and all the numbers are at your disposal!
 // *************************
 
-#define WORDS 8
+#define WORDS 9  // yes, I know, it could be computed dymanically
 int words[][4] = {
   0xDD, 0xF1, 0x90, 0xDD, // figo
   0x81, 0xFA, 0xCE, 0x5D, // bifaces
@@ -67,6 +67,7 @@ int words[][4] = {
   0x73, 0xD5, 0x1D, 0x88, // 73 51 88
   0xD5, 0x0F, 0x1A, 0xDD, // sofia
   0xDD, 0xD4, 0x2D, 0xDD, // THE ANSWER!
+  0x5E, 0x1D, 0xF1, 0x90  // sei figo
 };
 
 
@@ -318,9 +319,9 @@ void setup() {
   if (! rtc.begin()) {
 //    Serial.println("Couldn't find RTC");
     // TODO: display an error on the display E001
-    blankControl(50, 50, 50, 50);
+    blankControl(0, 50, 0, 50);
     printBCD(4, 0xE0);
-    printBCD(2, 0x01);
+    printBCD(0, 0x01);
     delay(1000);
 
     while (1);
@@ -380,6 +381,7 @@ void loop() {
   static int lightIntensity;
   static int lightIntensityOld;
   static int shortPress;
+  static int myWeekday;
   int newHours;
   int newMinutes;
   int newDay;
@@ -446,18 +448,11 @@ void loop() {
       secondsElapsed = RTCnow.second();
       timePosOffset = random(-1,1);
       randomWord = random(0, WORDS);
+      myWeekday = RTCnow.dayOfTheWeek();
       randomWordDisplay = random(0, 10); // display the random word 10% of times
     }
 
-    setDisplayVector( OFFDIGIT,
-                      decToBcd(RTCnow.hour()/10),
-                      decToBcd(RTCnow.hour()%10),
-                      (decToBcd(RTCnow.minute()/10) | 0B00010000),
-                      decToBcd(RTCnow.minute()%10),
-                      (decToBcd(secondsElapsed/10) | 0B00010000),
-                      decToBcd(secondsElapsed%10),
-                      OFFDIGIT );
-    
+  
 //    displayVector[0] = OFFDIGIT;
 //    displayVector[1] = decToBcd(RTCnow.hour()/10);
 //    displayVector[2] = decToBcd(RTCnow.hour()%10);
@@ -745,12 +740,23 @@ void loop() {
             printBCD(2, words[randomWord][2]);
             printBCD(4, words[randomWord][1]);
             printBCD(6, words[randomWord][0]);
-            blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
-            break;
+          } else {
+            setDisplayVector( OFFDIGIT,
+                    decToBcd(RTCnow.hour()/10),
+                    decToBcd(RTCnow.hour()%10),
+                    (decToBcd(RTCnow.minute()/10) | 0B00010000),
+                    decToBcd(RTCnow.minute()%10),
+                    (decToBcd(secondsElapsed/10) | 0B00010000),
+                    decToBcd(secondsElapsed%10),
+                    OFFDIGIT );
+            updateDisplayFromVector();
           }
+          blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
 
-        case 59:
-        case 58:
+          break;
+
+        case 56:
+        case 57:
           // show month-day and day-of-the-week number
           printBCD(6, decToBcd(RTCnow.day()));
           updateDisplay(5, 0x0B);
@@ -760,13 +766,70 @@ void loop() {
           blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity); 
           lightIntensityOld = lightIntensity;
           break;
-        case 57:
-          lightIntensityOld = fadeOut(lightIntensityOld);
-          delay(200);
-//          updateDpRight(0);
-//          updateDpLeft(0);
+//        case 56:
+//          lightIntensityOld = fadeOut(lightIntensityOld);
+//          delay(200);
+////          updateDpRight(0);
+////          updateDpLeft(0);
+//          break;
+
+        case 58:
+        case 59:
+          // let's display the day of the week in some form using 7 displays and different brightness
+          switch (myWeekday) {
+            case 1: // monday
+              setDisplayVector(OFFDIGIT, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07);
+              updateDisplayFromVector();
+              blankControl(lightIntensity, MINBRI, MINBRI, MINBRI);
+              break;
+            case 2: // tuesday
+              setDisplayVector(DASH, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, OFFDIGIT);
+              updateDisplayFromVector();
+              blankControl(lightIntensity, MINBRI, MINBRI, MINBRI);
+              break;
+            case 3: // wednesday
+              setDisplayVector(0x01, 0x02, 0x03, DASH, 0x04, 0x05, 0x06, 0x07);
+              updateDisplayFromVector();
+              blankControl(MINBRI, lightIntensity, MINBRI, MINBRI);
+              break;
+            case 4: // thursday
+              setDisplayVector(DASH, DASH, DASH, 0x04, 0x05, 0x06, 0x07, OFFDIGIT);
+              updateDisplayFromVector();
+              blankControl(lightIntensity, lightIntensity, MINBRI, MINBRI);
+              break;
+            case 5: // friday
+              setDisplayVector(0x01, 0x02, 0x03, 0x04, 0x05, DASH, 0x06, 0x07);
+              updateDisplayFromVector();
+              blankControl(MINBRI, MINBRI, lightIntensity, MINBRI);
+              break;            
+            case 6: // saturday
+              setDisplayVector(OFFDIGIT, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, DASH);
+              updateDisplayFromVector();
+              blankControl(MINBRI, MINBRI, MINBRI, lightIntensity);
+              break;            
+            case 0: // sunday
+              setDisplayVector(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, OFFDIGIT);
+              updateDisplayFromVector();
+              blankControl(MINBRI, MINBRI, MINBRI, lightIntensity);
+              break;
+            default:
+              setDisplayVector(0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01);
+              updateDisplayFromVector();
+              blankControl(MINBRI, MINBRI, MINBRI, lightIntensity);
+              break;
+          }
           break;
+
+        
         default:
+          setDisplayVector( OFFDIGIT,
+                    decToBcd(RTCnow.hour()/10),
+                    decToBcd(RTCnow.hour()%10),
+                    (decToBcd(RTCnow.minute()/10) | 0B00010000),
+                    decToBcd(RTCnow.minute()%10),
+                    (decToBcd(secondsElapsed/10) | 0B00010000),
+                    decToBcd(secondsElapsed%10),
+                    OFFDIGIT );
           updateDisplayFromVector();
           blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
           break;
