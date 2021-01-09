@@ -57,7 +57,7 @@ int blankMSD = 0;
 // Plus space ("D") and all the numbers are at your disposal!
 // *************************
 
-#define WORDS 9  // yes, I know, it could be computed dymanically
+#define WORDS 10  // yes, I know, it could be computed dymanically
 int words[][4] = {
   0xDD, 0xF1, 0x90, 0xDD, // figo
   0x81, 0xFA, 0xCE, 0x5D, // bifaces
@@ -67,6 +67,7 @@ int words[][4] = {
   0x73, 0xD5, 0x1D, 0x88, // 73 51 88
   0xD5, 0x0F, 0x1A, 0xDD, // sofia
   0xDD, 0xD4, 0x2D, 0xDD, // THE ANSWER!
+  0xDD, 0xBA, 0xC1, 0x0D, // bacio
   0x5E, 0x1D, 0xF1, 0x90  // sei figo
 };
 
@@ -778,44 +779,44 @@ void loop() {
           // let's display the day of the week in some form using 7 displays and different brightness
           switch (myWeekday) {
             case 1: // monday
-              setDisplayVector(OFFDIGIT, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07);
+              setDisplayVector(OFFDIGIT, 0x01, DASH, DASH, DASH, DASH, DASH, DASH);
               updateDisplayFromVector();
-              blankControl(lightIntensity, MINBRI, MINBRI, MINBRI);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;
             case 2: // tuesday
-              setDisplayVector(DASH, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, OFFDIGIT);
+              setDisplayVector(DASH, 0x02, DASH, DASH, DASH, DASH, DASH, OFFDIGIT);
               updateDisplayFromVector();
-              blankControl(lightIntensity, MINBRI, MINBRI, MINBRI);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;
             case 3: // wednesday
-              setDisplayVector(0x01, 0x02, 0x03, DASH, 0x04, 0x05, 0x06, 0x07);
+              setDisplayVector(DASH, DASH, 0x03, DASH, DASH, DASH, DASH, OFFDIGIT);
               updateDisplayFromVector();
-              blankControl(MINBRI, lightIntensity, MINBRI, MINBRI);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;
             case 4: // thursday
-              setDisplayVector(DASH, DASH, DASH, 0x04, 0x05, 0x06, 0x07, OFFDIGIT);
+              setDisplayVector(OFFDIGIT, DASH, DASH, DASH, 0x04, DASH, DASH, DASH);
               updateDisplayFromVector();
-              blankControl(lightIntensity, lightIntensity, MINBRI, MINBRI);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;
             case 5: // friday
-              setDisplayVector(0x01, 0x02, 0x03, 0x04, 0x05, DASH, 0x06, 0x07);
+              setDisplayVector(DASH, DASH, DASH, DASH, 0x05, DASH, DASH, OFFDIGIT);
               updateDisplayFromVector();
-              blankControl(MINBRI, MINBRI, lightIntensity, MINBRI);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;            
             case 6: // saturday
-              setDisplayVector(OFFDIGIT, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, DASH);
+              setDisplayVector(OFFDIGIT, DASH, DASH, DASH, DASH, DASH, 0x06, DASH);
               updateDisplayFromVector();
-              blankControl(MINBRI, MINBRI, MINBRI, lightIntensity);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;            
             case 0: // sunday
-              setDisplayVector(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, OFFDIGIT);
+              setDisplayVector(DASH, DASH, DASH, DASH, DASH, DASH, 0x07, OFFDIGIT);
               updateDisplayFromVector();
-              blankControl(MINBRI, MINBRI, MINBRI, lightIntensity);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;
             default:
               setDisplayVector(0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01);
               updateDisplayFromVector();
-              blankControl(MINBRI, MINBRI, MINBRI, lightIntensity);
+              blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
               break;
           }
           break;
