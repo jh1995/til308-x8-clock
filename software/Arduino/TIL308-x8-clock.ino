@@ -57,7 +57,7 @@ int blankMSD = 0;
 // Plus space ("D") and all the numbers are at your disposal!
 // *************************
 
-#define WORDS 10  // yes, I know, it could be computed dymanically
+#define WORDS 12  // yes, I know, it could be computed dymanically
 int words[][4] = {
   0xDD, 0xF1, 0x90, 0xDD, // figo
   0x81, 0xFA, 0xCE, 0x5D, // bifaces
@@ -67,8 +67,10 @@ int words[][4] = {
   0x73, 0xD5, 0x1D, 0x88, // 73 51 88
   0xD5, 0x0F, 0x1A, 0xDD, // sofia
   0xDD, 0xD4, 0x2D, 0xDD, // THE ANSWER!
-  0xDD, 0xBA, 0xC1, 0x0D, // bacio
-  0x5E, 0x1D, 0xF1, 0x90  // sei figo
+  0xDD, 0x8A, 0xC1, 0x0D, // bacio
+  0xDD, 0xCA, 0xC1, 0x0D, // cacio
+  0x5E, 0x1D, 0xF1, 0x90, // sei figo
+  0x25, 0x04, 0x18, 0x74  // DoB of ...?
 };
 
 
@@ -79,6 +81,7 @@ int words[][4] = {
 #define NIGHTMODEEE 10 // EEPROM position to store night mode setting
 #define NIGHTMODESTARTEE 12 // EEPROM position to store night mode start time
 #define NIGHTMODEENDEE 16 // // EEPROM position to store night mode end time
+#define SEED_ADDR          21 // EEPROM position to store the random seed
 #define ENDOFNIGHTMODE 9 // end night mode at 9 AM. Integer
 #define INTENSITYTHRESHOLDMID 150 // below this is night, above is day light
 #define INTENSITYTHRESHOLDDAY 320 // below this is night, above is day light
@@ -368,7 +371,13 @@ void setup() {
   RTCnow = rtc.now();
   seconds = RTCnow.second();
   secondsElapsed = seconds;
-  randomSeed(seconds+RTCnow.day()+RTCnow.month());
+
+  
+//  randomSeed(seconds+RTCnow.day()+RTCnow.month());
+  long unsigned int seed;
+  seed = EEPROM.read(SEED_ADDR);
+  EEPROM.write(SEED_ADDR, seed+1);
+  randomSeed(seed);
 
   attachInterrupt(digitalPinToInterrupt(oneSecondInterruptPin), oneSecondISR, FALLING);
 
@@ -450,19 +459,10 @@ void loop() {
       timePosOffset = random(-1,1);
       randomWord = random(0, WORDS);
       myWeekday = RTCnow.dayOfTheWeek();
-      randomWordDisplay = random(0, 10); // display the random word 10% of times
+      randomWordDisplay = random(0, 2); // display the random word 30% of times
     }
 
   
-//    displayVector[0] = OFFDIGIT;
-//    displayVector[1] = decToBcd(RTCnow.hour()/10);
-//    displayVector[2] = decToBcd(RTCnow.hour()%10);
-//    displayVector[3] = (decToBcd(RTCnow.minute()/10) | 0B00010000);
-//    displayVector[4] = decToBcd(RTCnow.minute()%10);
-//    displayVector[5] = (decToBcd(secondsElapsed/10) | 0B00010000);
-//    displayVector[6] = decToBcd(secondsElapsed%10);    
-//    displayVector[7] = OFFDIGIT;
-
 
 // ***** SET ROUTINE *****
 
